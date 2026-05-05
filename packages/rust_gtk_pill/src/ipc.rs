@@ -84,6 +84,7 @@ pub enum InMessage {
         streaming: Option<PillStreaming>,
         permissions: Vec<PillPermission>,
     },
+    CursorPosition { x: i32, y: i32 },
     Quit,
 }
 

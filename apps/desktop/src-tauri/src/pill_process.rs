@@ -34,7 +34,8 @@ pub fn try_spawn_pill(app: &tauri::AppHandle, pill_path: &std::path::Path) -> bo
     command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::inherit());
+        .stderr(Stdio::inherit())
+        .env_remove("GDK_BACKEND");
 
     #[cfg(target_os = "windows")]
     {
@@ -93,12 +94,38 @@ pub fn try_spawn_pill(app: &tauri::AppHandle, pill_path: &std::path::Path) -> bo
 
 pub fn notify_phase(app: &tauri::AppHandle, phase: &OverlayPhase) {
     if let Some(pill) = app.try_state::<std::sync::Arc<PillProcess>>() {
+        // Send cursor position before phase so pill shows on the correct monitor
+        if *phase != OverlayPhase::Idle {
+            notify_cursor_position(app);
+        }
         let phase_str = match phase {
             OverlayPhase::Idle => "idle",
             OverlayPhase::Recording => "recording",
             OverlayPhase::Loading => "loading",
         };
         pill.send(&format!(r#"{{"type":"phase","phase":"{phase_str}"}}"#));
+    }
+}
+
+pub fn notify_cursor_position(app: &tauri::AppHandle) {
+    #[cfg(target_os = "linux")]
+    if let Some(pill) = app.try_state::<std::sync::Arc<PillProcess>>() {
+        // Use hyprctl for Wayland-native cursor coordinates (GDK X11 coords don't
+        // map to the pill's Wayland coordinate space)
+        if let Ok(output) = std::process::Command::new("hyprctl")
+            .args(["cursorpos"])
+            .output()
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let trimmed = stdout.trim();
+            if let Some((xs, ys)) = trimmed.split_once(", ") {
+                if let (Ok(x), Ok(y)) = (xs.trim().parse::<i32>(), ys.trim().parse::<i32>()) {
+                    pill.send(&format!(
+                        r#"{{"type":"cursor_position","x":{x},"y":{y}}}"#
+                    ));
+                }
+            }
+        }
     }
 }
 

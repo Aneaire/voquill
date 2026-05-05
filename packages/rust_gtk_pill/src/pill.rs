@@ -421,6 +421,15 @@ pub fn run(receiver: Receiver<InMessage>) {
                         state_tick.scroll_offset.set(0.0);
                     }
                 }
+                InMessage::CursorPosition { x, y } => {
+                    if backend_tick == Backend::LayerShell {
+                        if let Some(display) = gdk::Display::default() {
+                            if let Some(monitor) = display.monitor_at_point(x, y) {
+                                win_tick.set_monitor(&monitor);
+                            }
+                        }
+                    }
+                }
                 InMessage::Quit => {
                     quit_tick.set(true);
                 }
@@ -535,38 +544,6 @@ pub fn run(receiver: Receiver<InMessage>) {
     entry.hide();
     ipc::send(&OutMessage::Ready);
 
-    if backend == Backend::LayerShell {
-        let window_ref = window.clone();
-        let quit_monitor = quit_flag.clone();
-        let last_geom: Rc<Cell<(i32, i32, i32, i32)>> = Rc::new(Cell::new((0, 0, 0, 0)));
-        glib::timeout_add_local(Duration::from_millis(100), move || {
-            if quit_monitor.get() {
-                return ControlFlow::Break;
-            }
-            let display = match gdk::Display::default() {
-                Some(d) => d,
-                None => return ControlFlow::Continue,
-            };
-            let seat = match display.default_seat() {
-                Some(s) => s,
-                None => return ControlFlow::Continue,
-            };
-            let pointer = match seat.pointer() {
-                Some(p) => p,
-                None => return ControlFlow::Continue,
-            };
-            let (_, x, y) = pointer.position();
-            if let Some(monitor) = display.monitor_at_point(x, y) {
-                let g = monitor.geometry();
-                let new_geom = (g.x(), g.y(), g.width(), g.height());
-                if new_geom != last_geom.get() {
-                    last_geom.set(new_geom);
-                    window_ref.set_monitor(&monitor);
-                }
-            }
-            ControlFlow::Continue
-        });
-    }
 
     let main_loop = glib::MainLoop::new(None, false);
     let ml = main_loop.clone();
