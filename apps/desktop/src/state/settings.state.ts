@@ -142,7 +142,7 @@ export const INITIAL_SETTINGS_STATE: SettingsState = {
     availableDevices: [],
     availableDevicesLoading: false,
     selectedApiKeyId: null,
-    gpuEnumerationEnabled: false,
+    gpuEnumerationEnabled: true,
     localModelManagement: {
       modelStatuses: createEmptyLocalTranscriptionModelStatusMap(),
       modelStatusesLoading: false,

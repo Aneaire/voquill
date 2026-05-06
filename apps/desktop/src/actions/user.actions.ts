@@ -94,7 +94,7 @@ export const createDefaultPreferences = (): UserPreferences => ({
   postProcessingOllamaModel: null,
   activeToneId: null,
   gotStartedAt: null,
-  gpuEnumerationEnabled: false,
+  gpuEnumerationEnabled: true,
   agentMode: null,
   agentModeApiKeyId: null,
   openclawGatewayUrl: null,
