@@ -37,11 +37,18 @@ class LocalTranscriptionSidecarFacade {
     const cpuDevices = await this.cpuSidecar.listDevices();
     const devices = [...cpuDevices];
 
-    if (supportsGpuTranscriptionDevice() && !this.gpuUnavailable) {
+    if (supportsGpuTranscriptionDevice()) {
       try {
         await this.gpuSidecar.ensureStarted();
         const gpuDevices = await this.gpuSidecar.listDevices();
         devices.push(...gpuDevices);
+
+        if (this.gpuUnavailable) {
+          this.gpuUnavailable = false;
+          getLogger().info(
+            "[local-sidecar:gpu] available again after device re-detection",
+          );
+        }
       } catch (error) {
         this.markGpuUnavailable(error);
       }
