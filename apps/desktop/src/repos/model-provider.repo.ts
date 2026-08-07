@@ -2,6 +2,7 @@ import {
   AZURE_OPENAI_MODELS,
   CEREBRAS_MODELS,
   CLAUDE_MODELS,
+  DEEPGRAM_TRANSCRIPTION_MODELS,
   DEEPSEEK_MODELS,
   GEMINI_GENERATE_TEXT_MODELS,
   GEMINI_TRANSCRIPTION_MODELS,
@@ -52,6 +53,10 @@ async function fetchOpenAICompatibleModels(
 
 function isWhisperModel(modelId: string): boolean {
   return modelId.includes("whisper");
+}
+
+function isOpenAITranscriptionModel(modelId: string): boolean {
+  return isWhisperModel(modelId) || modelId.includes("transcribe");
 }
 
 function filterFetchedModels(
@@ -115,12 +120,12 @@ export class OpenAIModelProviderRepo extends BaseModelProviderRepo {
     options: FetchModelsOptions,
   ): Promise<string[]> {
     const fetched = await this.fetchModels(options);
-    return fetched.filter((m) => !isWhisperModel(m));
+    return fetched.filter((m) => !isOpenAITranscriptionModel(m));
   }
 
   async getTranscriptionModels(options: FetchModelsOptions): Promise<string[]> {
     const fetched = await this.fetchModels(options);
-    return fetched.filter(isWhisperModel);
+    return fetched.filter(isOpenAITranscriptionModel);
   }
 }
 
@@ -497,6 +502,6 @@ export class DeepgramModelProviderRepo extends BaseModelProviderRepo {
   }
 
   async getTranscriptionModels(): Promise<string[]> {
-    return ["nova-3"];
+    return [...DEEPGRAM_TRANSCRIPTION_MODELS];
   }
 }

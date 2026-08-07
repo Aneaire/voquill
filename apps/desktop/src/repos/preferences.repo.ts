@@ -11,6 +11,7 @@ import {
   DEFAULT_DICTATION_LIMIT_MINUTES,
   normalizeDictationLimitMinutes,
 } from "../utils/dictation-limit.utils";
+import { PRIMARY_LANGUAGE_SENTINEL } from "../utils/language.utils";
 import { getEffectivePillVisibility, LOCAL_USER_ID } from "../utils/user.utils";
 import { BaseRepo } from "./base.repo";
 
@@ -51,6 +52,8 @@ type LocalUserPreferences = {
   pasteKeybind: Nullable<string>;
   useNewBackend: boolean;
   menuBarIconHidden: boolean;
+  insertionMethod: Nullable<string>;
+  typingSpeedMs: Nullable<number>;
 };
 
 // Normalize post-processing mode for backwards compatibility
@@ -66,7 +69,7 @@ const normalizePostProcessingMode = (
   return "none";
 };
 
-const fromLocalPreferences = (
+export const fromLocalPreferences = (
   preferences: LocalUserPreferences,
 ): UserPreferences => ({
   userId: preferences.userId,
@@ -89,6 +92,7 @@ const fromLocalPreferences = (
   openclawToken: preferences.openclawToken ?? null,
   lastSeenFeature: preferences.lastSeenFeature,
   isEnterprise: preferences.isEnterprise,
+  activeDictationLanguage: preferences.activeDictationLanguage ?? null,
   preferredMicrophone: preferences.preferredMicrophone ?? null,
   ignoreUpdateDialog: preferences.ignoreUpdateDialog ?? false,
   incognitoModeEnabled: preferences.incognitoModeEnabled ?? false,
@@ -107,9 +111,11 @@ const fromLocalPreferences = (
   dictationAudioDim: preferences.dictationAudioDim ?? 1.0,
   pasteKeybind: preferences.pasteKeybind ?? null,
   menuBarIconHidden: preferences.menuBarIconHidden ?? false,
+  insertionMethod: preferences.insertionMethod ?? null,
+  typingSpeedMs: preferences.typingSpeedMs ?? null,
 });
 
-const toLocalPreferences = (
+export const toLocalPreferences = (
   preferences: UserPreferences,
 ): LocalUserPreferences => ({
   userId: LOCAL_USER_ID,
@@ -132,7 +138,8 @@ const toLocalPreferences = (
   isEnterprise: preferences.isEnterprise,
   languageSwitchEnabled: false,
   secondaryDictationLanguage: null,
-  activeDictationLanguage: "primary",
+  activeDictationLanguage:
+    preferences.activeDictationLanguage ?? PRIMARY_LANGUAGE_SENTINEL,
   preferredMicrophone: preferences.preferredMicrophone ?? null,
   ignoreUpdateDialog: preferences.ignoreUpdateDialog ?? false,
   incognitoModeEnabled: preferences.incognitoModeEnabled ?? false,
@@ -152,6 +159,8 @@ const toLocalPreferences = (
   pasteKeybind: preferences.pasteKeybind ?? null,
   useNewBackend: true,
   menuBarIconHidden: preferences.menuBarIconHidden ?? false,
+  insertionMethod: preferences.insertionMethod ?? null,
+  typingSpeedMs: preferences.typingSpeedMs ?? null,
 });
 
 export abstract class BaseUserPreferencesRepo extends BaseRepo {

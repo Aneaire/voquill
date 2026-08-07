@@ -24,6 +24,7 @@ export type UserPreferences = {
   openclawGatewayUrl: Nullable<string>;
   openclawToken: Nullable<string>;
   lastSeenFeature: Nullable<string>;
+  activeDictationLanguage: Nullable<string>;
   preferredMicrophone: Nullable<string>;
   ignoreUpdateDialog: boolean;
   incognitoModeEnabled: boolean;
@@ -38,6 +39,8 @@ export type UserPreferences = {
   dictationAudioDim: number;
   pasteKeybind: Nullable<string>;
   menuBarIconHidden: boolean;
+  insertionMethod: Nullable<string>;
+  typingSpeedMs: Nullable<number>;
 
   // deprecated
   isEnterprise: boolean;

@@ -31,6 +31,7 @@ import {
 import {
   migrateLocalUserToCloud,
   refreshCurrentUser,
+  setActiveDictationLanguage,
   setRemoteOutputEnabled,
   setRemoteTargetDeviceId,
 } from "../../actions/user.actions";
@@ -46,10 +47,16 @@ import {
   getConfigRepo,
   getEnterpriseRepo,
   getMemberRepo,
+  getTenantRepo,
   getTermRepo,
+  getTranscriptionRepo,
   getUserRepo,
 } from "../../repos";
-import { HotkeyStrategy, PasteKeybindSupport } from "../../state/app.state";
+import {
+  HotkeyStrategy,
+  MyTenantMembership,
+  PasteKeybindSupport,
+} from "../../state/app.state";
 import { getAppState, produceAppState, useAppStore } from "../../store";
 import { AuthUser } from "../../types/auth.types";
 import { OverlayPhase } from "../../types/overlay.types";
@@ -68,6 +75,7 @@ import { sendPillFlashMessage } from "../../utils/overlay.utils";
 import { isPermissionAuthorized } from "../../utils/permission.utils";
 import { getPlatform } from "../../utils/platform.utils";
 import { minutesToMilliseconds } from "../../utils/time.utils";
+import { buildTrayLanguageMenuModel } from "../../utils/tray-language.utils";
 import {
   getEffectivePillVisibility,
   getMyUserPreferences,
@@ -78,7 +86,9 @@ import {
   surfaceMainWindow,
 } from "../../utils/window.utils";
 
-type StreamRet = Nullable<[Nullable<Member>, Nullable<User>]>;
+type StreamRet = Nullable<
+  [Nullable<Member>, Nullable<User>, Nullable<MyTenantMembership>]
+>;
 
 type KeysHeldPayload = {
   keys: string[];
@@ -355,7 +365,7 @@ export const AppSideEffects = () => {
       }
 
       if (!userId) {
-        return combineLatest([of(null), of(null)]);
+        return combineLatest([of(null), of(null), of(null)]);
       }
 
       return combineLatest([
@@ -369,6 +379,25 @@ export const AppSideEffects = () => {
             .getMyUser()
             .catch(() => null),
         ),
+        from(
+          (async (): Promise<Nullable<MyTenantMembership>> => {
+            const repo = getTenantRepo();
+            if (!repo) return null;
+            try {
+              const tenants = await repo.listMine();
+              const first = tenants[0];
+              return first
+                ? {
+                    tenant: first.tenant,
+                    role: first.role,
+                    hasSeat: first.hasSeat,
+                  }
+                : null;
+            } catch {
+              return null;
+            }
+          })(),
+        ),
       ]);
     },
     onSuccess: (results) => {
@@ -377,10 +406,11 @@ export const AppSideEffects = () => {
         return;
       }
 
-      const [members, user] = results;
+      const [members, user, tenant] = results;
       produceAppState((draft) => {
         registerUsers(draft, listify(user));
         registerMembers(draft, listify(members));
+        draft.myTenant = tenant;
       });
     },
     dependencies: [userId, authReady, isEnterprise],
@@ -651,12 +681,37 @@ export const AppSideEffects = () => {
     installAvailableUpdate();
   });
 
+  useTauriListen<void>("tray-copy-last-transcript", async () => {
+    const [latest] = await getTranscriptionRepo().listTranscriptions({
+      limit: 1,
+    });
+    if (latest?.transcript) {
+      await invoke("copy_to_clipboard", { text: latest.transcript });
+    }
+  });
+
   const menuBarIconHidden = prefs?.menuBarIconHidden ?? false;
   useEffect(() => {
     invoke("set_tray_visible", { visible: !menuBarIconHidden }).catch(
       console.error,
     );
   }, [menuBarIconHidden]);
+
+  // Re-push the tray Language submenu whenever the Active Dictation Language or
+  // the configured language set changes, keeping the tray correct after both
+  // tray clicks and settings edits.
+  const trayLanguageMenuKey = useAppStore((state) =>
+    JSON.stringify(buildTrayLanguageMenuModel(state)),
+  );
+  useEffect(() => {
+    invoke("set_tray_language_menu", {
+      items: JSON.parse(trayLanguageMenuKey),
+    }).catch(console.error);
+  }, [trayLanguageMenuKey]);
+
+  useTauriListen<string>("tray-set-dictation-language", (code) => {
+    setActiveDictationLanguage(code).catch(console.error);
+  });
 
   return null;
 };

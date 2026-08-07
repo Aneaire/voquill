@@ -80,29 +80,24 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
         )
         .on_window_event(|window, event| {
             match event {
-                WindowEvent::CloseRequested { api, .. } => {
+                WindowEvent::CloseRequested { api, .. } if window.label() == "main" => {
                     api.prevent_close();
-                    if window.label() == "main" {
-                        let _ = window
-                            .app_handle()
-                            .save_window_state(StateFlags::SIZE | StateFlags::POSITION);
-                        let _ = window.hide();
-                        // On Windows, force the WebView to stay active after hiding the window
-                        // so that background JS (global hotkey detection via keys_held events)
-                        // continues running while the app is minimized to the system tray.
-                        #[cfg(target_os = "windows")]
-                        {
-                            crate::platform::window::keep_webview_active(
-                                window.app_handle(),
-                                "main",
-                            );
-                            crate::platform::window::set_webview_keepalive(true);
-                        }
-                        #[cfg(target_os = "macos")]
-                        {
-                            if let Err(err) = crate::platform::macos::dock::hide_dock_icon() {
-                                log::error!("Failed to hide dock icon: {err}");
-                            }
+                    let _ = window
+                        .app_handle()
+                        .save_window_state(StateFlags::SIZE | StateFlags::POSITION);
+                    let _ = window.hide();
+                    // On Windows, force the WebView to stay active after hiding the window
+                    // so that background JS (global hotkey detection via keys_held events)
+                    // continues running while the app is minimized to the system tray.
+                    #[cfg(target_os = "windows")]
+                    {
+                        crate::platform::window::keep_webview_active(window.app_handle(), "main");
+                        crate::platform::window::set_webview_keepalive(true);
+                    }
+                    #[cfg(target_os = "macos")]
+                    {
+                        if let Err(err) = crate::platform::macos::dock::hide_dock_icon() {
+                            log::error!("Failed to hide dock icon: {err}");
                         }
                     }
                 }
@@ -155,6 +150,7 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
             app.manage(crate::state::GoogleOAuthState::from_env());
             app.manage(crate::state::OverlayState::new());
             app.manage(crate::state::RemoteReceiverState::new());
+            app.manage(crate::state::FloatingWindowState::new());
 
             match crate::system::auth_session::AuthSession::new(app.handle()) {
                 Ok(session) => {
@@ -252,6 +248,8 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
             crate::commands::surface_main_window,
             crate::commands::set_pill_window_size,
             crate::commands::paste,
+            crate::commands::simulate_type,
+            crate::commands::cancel_typing,
             crate::commands::copy_to_clipboard,
             crate::commands::transcription_create,
             crate::commands::transcription_list,
@@ -270,6 +268,7 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
             crate::commands::hotkey_delete,
             crate::commands::set_tray_title,
             crate::commands::set_menu_icon,
+            crate::commands::set_tray_language_menu,
             crate::commands::set_tray_visible,
             crate::commands::api_key_create,
             crate::commands::api_key_list,
@@ -327,6 +326,9 @@ pub fn build() -> tauri::Builder<tauri::Wry> {
             crate::commands::auth_sign_out,
             crate::commands::auth_is_signed_in,
             crate::commands::return_to_shell,
+            crate::commands::floating_window_create,
+            crate::commands::floating_window_destroy,
+            crate::commands::floating_window_list,
         ])
 }
 
